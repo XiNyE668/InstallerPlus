@@ -29,19 +29,23 @@ internal fun Member.hook(callback: XC_MethodHook) = try {
 
 internal inline fun Member.hookBefore(crossinline hooker: (XC_MethodHook.MethodHookParam) -> Unit) =
     hook(object : XC_MethodHook() {
-        override fun beforeHookedMethod(param: MethodHookParam?) = try {
-            hooker(param!!)
-        } catch (e: Throwable) {
-            Log.e(TAG, e.message, e)
+        override fun beforeHookedMethod(param: MethodHookParam) {
+            try {
+                hooker(param)
+            } catch (e: Throwable) {
+                Log.e(TAG, e.message, e)
+            }
         }
     })
 
 internal inline fun Member.hookAfter(crossinline hooker: (XC_MethodHook.MethodHookParam) -> Unit) =
     hook(object : XC_MethodHook() {
-        override fun afterHookedMethod(param: MethodHookParam?) = try {
-            hooker(param!!)
-        } catch (e: Throwable) {
-            Log.e(TAG, e.message, e)
+        override fun afterHookedMethod(param: MethodHookParam) {
+            try {
+                hooker(param)
+            } catch (e: Throwable) {
+                Log.e(TAG, e.message, e)
+            }
         }
     })
 
@@ -49,7 +53,7 @@ internal fun Member.replace(result: Any?) = this.replace { result }
 
 internal inline fun <T : Any> Member.replace(crossinline hooker: (XC_MethodHook.MethodHookParam) -> T?) =
     hook(object : XC_MethodReplacement() {
-        override fun replaceHookedMethod(param: MethodHookParam?): Any? = hooker(param!!)
+        override fun replaceHookedMethod(param: MethodHookParam): Any? = hooker(param)
     })
 
 internal fun Class<*>.method(name: String): Method? {
