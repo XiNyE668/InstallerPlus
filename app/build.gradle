@@ -4,15 +4,15 @@ plugins {
 }
 
 android {
-    compileSdk 33
-    buildToolsVersion '33.0.2'
+    namespace 'ltd.nextalone.pkginstallerplus'
+    compileSdk 36
 
     defaultConfig {
         applicationId "ltd.nextalone.pkginstallerplus"
         minSdkVersion 23
-        targetSdkVersion 33
+        targetSdkVersion 36
         versionCode(getTimeStamp.call() as int)
-        versionName "1.2" + (getGitHeadRefsSuffix.call() as String)
+        versionName "2.0-A16" + (getGitHeadRefsSuffix.call() as String)
     }
 
     buildTypes {
@@ -22,20 +22,19 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    // Keep the historical fixed resource package id for legacy N/Q resource injection.
     aaptOptions {
         additionalParameters '--allow-reserved-package-id', '--package-id', '0x75'
     }
+
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = '11'
+        jvmTarget = '17'
     }
-    buildFeatures {
-        viewBinding true
-    }
-    namespace 'ltd.nextalone.pkginstallerplus'
 }
 
 dependencies {
