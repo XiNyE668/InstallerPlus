@@ -53,6 +53,7 @@ object InstallerHookN {
         val pkgName = newPkgInfo.packageName
         val usrManager: UserManager = activity.get("mUserManager") as UserManager
         val oldPkgInfo = try {
+            @Suppress("DEPRECATION")
             activity.packageManager.getPackageInfo(pkgName, PackageManager.GET_UNINSTALLED_PACKAGES)
         } catch (e: PackageManager.NameNotFoundException) {
             null
@@ -60,8 +61,9 @@ object InstallerHookN {
 
         val sb = SpannableStringBuilder()
         if (oldPkgInfo == null) {
+            @Suppress("DEPRECATION")
             val newVersionStr = (newPkgInfo.versionName ?: "N/A") + "(" + newPkgInfo.versionCode + ")"
-            val newSdkStr = newPkgInfo.applicationInfo.targetSdkVersion.toString()
+            val newSdkStr = newPkgInfo.applicationInfo?.targetSdkVersion?.toString() ?: "N/A"
 
             sb.append(activity.getString(R.string.IPP_info_user) + ": ")
                 .append(usrManager.userName)
@@ -76,10 +78,12 @@ object InstallerHookN {
                 .append(newSdkStr, ForegroundColorSpan(ThemeUtil.colorGreen), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
 
         } else {
+            @Suppress("DEPRECATION")
             val oldVersionStr = (oldPkgInfo.versionName ?: "N/A") + "(" + oldPkgInfo.versionCode + ")"
+            @Suppress("DEPRECATION")
             val newVersionStr = (newPkgInfo.versionName ?: "N/A") + "(" + newPkgInfo.versionCode + ")"
-            val oldSdkStr = oldPkgInfo.applicationInfo.targetSdkVersion.toString()
-            val newSdkStr = newPkgInfo.applicationInfo.targetSdkVersion.toString()
+            val oldSdkStr = oldPkgInfo.applicationInfo?.targetSdkVersion?.toString() ?: "N/A"
+            val newSdkStr = newPkgInfo.applicationInfo?.targetSdkVersion?.toString() ?: "N/A"
 
             sb.append(activity.getString(R.string.IPP_info_user) + ": ")
                 .append(usrManager.userName)

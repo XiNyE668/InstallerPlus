@@ -1,0 +1,11 @@
+app/src/main/java/ltd/nextalone/pkginstallerplus/HookEntry.java
+app/src/main/java/ltd/nextalone/pkginstallerplus/hook/InstallerHookBaklava.kt
+app/src/main/java/ltd/nextalone/pkginstallerplus/utils/HookUtils.kt
+app/src/main/java/ltd/nextalone/pkginstallerplus/utils/ReflectUtils.kt
+app/src/main/java/ltd/nextalone/pkginstallerplus/utils/ResourceUtils.kt
+app/src/main/res/values/arrays.xml
+app/build.gradle
+build.gradle
+gradle/wrapper/gradle-wrapper.properties
+gradle.properties
+.github/workflows/autoci.yml

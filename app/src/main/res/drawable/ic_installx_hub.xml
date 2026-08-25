@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Black rounded-square base. -->
+    <path
+        android:fillColor="#0A0A0A"
+        android:pathData="M16,4 H92 A12,12 0,0 1,104 16 V92 A12,12 0,0 1,92 104 H16 A12,12 0,0 1,4 92 V16 A12,12 0,0 1,16 4 Z" />
+
+    <!-- installX-inspired white X mark. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M17,20 L26,20 L41,42 L56,20 L65,20 L45.5,49 L66,78 L56,78 L41,56 L26,78 L16,78 L36.5,49 Z" />
+
+    <!-- Orange Hub-style panel. -->
+    <path
+        android:fillColor="#FF9900"
+        android:pathData="M49,53 H94 A8,8 0,0 1,102 61 V88 A8,8 0,0 1,94 96 H49 A8,8 0,0 1,41 88 V61 A8,8 0,0 1,49 53 Z" />
+
+    <!-- Black H mark inside the orange panel. -->
+    <path
+        android:fillColor="#090909"
+        android:pathData="M52,62 H59 V72 H70 V62 H77 V87 H70 V78 H59 V87 H52 Z" />
+
+    <!-- Small black accent bars suggesting 'ub' without copying a third-party logo. -->
+    <path
+        android:fillColor="#090909"
+        android:pathData="M81,68 H86 V81 C86,83 87,84 89,84 C91,84 92,83 92,81 V68 H97 V82 C97,87 94,90 89,90 C84,90 81,87 81,82 Z" />
+</vector>

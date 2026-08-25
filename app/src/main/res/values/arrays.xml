@@ -3,6 +3,7 @@
     <string-array name="xposedscope">
         <item>com.google.android.packageinstaller</item>
         <item>com.android.packageinstaller</item>
+        <item>com.android.permissioncontroller</item>
         <item>ltd.nextalone.pkginstallerplus</item>
     </string-array>
 </resources>

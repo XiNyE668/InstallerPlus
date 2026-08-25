@@ -33,58 +33,59 @@ public class HookEntry implements IXposedHookLoadPackage, IXposedHookZygoteInit 
     private static long sResInjectEndTime = 0;
 
     private static void initializeHookInternal(LoadPackageParam lpparam) {
-        logDebug("initializeHookInternal start");
+        logDebug("initializeHookInternal start: pkg=" + lpparam.packageName
+                + ", sdk=" + VERSION.SDK_INT);
         lpClassLoader = lpparam.classLoader;
+
+        // Android 16 / AOSP PackageInstaller v2. Do not also install the legacy
+        // Q hook into the same process: the two UI implementations are unrelated.
         if (isV2InstallerAvailable()) {
-            // Android 16 QPR2
             try {
-                logDebug("initializeHook: Baklava QPR2");
+                logDebug("initializeHook: PackageInstaller v2 / Android 16+");
                 InstallerHookBaklava.INSTANCE.initOnce();
-            } catch (Exception e) {
-                logThrowable("initializeHook(Baklava QPR2): ", e);
+                return;
+            } catch (Throwable t) {
+                // If a ROM partially backports v2 but changes its internals, keep a
+                // legacy fallback instead of leaving the installer completely unhooked.
+                logThrowable("initializeHook(v2): ", t);
             }
         }
+
         try {
             if (VERSION.SDK_INT >= VERSION_CODES.Q) {
-                //Android Q -- Android T
-                logDebug("initializeHook: Q");
+                logDebug("initializeHook: legacy Q+");
                 InstallerHookQ.INSTANCE.initOnce();
-            } else {
-                throw new Exception("UnsupportApiVersionError");
+                return;
             }
-        } catch (Exception e) {
+            throw new IllegalStateException("Unsupported API " + VERSION.SDK_INT);
+        } catch (Throwable e) {
             try {
-                //Android Nougat
-                logDebug("initializeHook: N");
+                logDebug("initializeHook: legacy N");
                 InstallerHookN.INSTANCE.initOnce();
-            } catch (Exception e1) {
+            } catch (Throwable e1) {
                 e.addSuppressed(e1);
                 logThrowable("initializeHookInternal: ", e);
             }
         }
     }
 
+    /**
+     * Legacy resource injection used only by the old N/Q hooks.
+     * Android 16 v2 deliberately does not depend on this hidden-API path.
+     */
     public static void injectModuleResources(Resources res) {
         logDebug("injectModuleResources start");
-        if (res == null) {
-            return;
-        }
+        if (res == null) return;
         try {
             res.getString(R.string.IPP_res_inject_success);
             return;
         } catch (Resources.NotFoundException ignored) {
         }
         try {
-            if (myClassLoader == null) {
-                myClassLoader = HookEntry.class.getClassLoader();
-            }
-            if (sModulePath == null) {
-                // should not happen
-                throw new IllegalStateException("sModulePath is null");
-            }
-            if (sResInjectBeginTime == 0) {
-                sResInjectBeginTime = System.currentTimeMillis();
-            }
+            if (myClassLoader == null) myClassLoader = HookEntry.class.getClassLoader();
+            if (sModulePath == null) throw new IllegalStateException("sModulePath is null");
+            if (sResInjectBeginTime == 0) sResInjectBeginTime = System.currentTimeMillis();
+
             AssetManager assets = res.getAssets();
             @SuppressLint("DiscouragedPrivateApi")
             Method addAssetPath = AssetManager.class.getDeclaredMethod("addAssetPath", String.class);
@@ -92,37 +93,27 @@ public class HookEntry implements IXposedHookLoadPackage, IXposedHookZygoteInit 
             int cookie = (int) addAssetPath.invoke(assets, sModulePath);
             try {
                 logDetail("injectModuleResources", res.getString(R.string.IPP_res_inject_success));
-                if (sResInjectEndTime == 0) {
-                    sResInjectEndTime = System.currentTimeMillis();
-                }
+                if (sResInjectEndTime == 0) sResInjectEndTime = System.currentTimeMillis();
             } catch (Resources.NotFoundException e) {
-                logError("Fatal: injectModuleResources: test injection failure!");
-                logError("injectModuleResources: cookie=" + cookie + ", path=" + sModulePath + ", loader=" + myClassLoader);
-                long length = -1;
-                boolean read = false;
-                boolean exist = false;
-                boolean isDir = false;
+                logError("injectModuleResources failed: cookie=" + cookie + ", path=" + sModulePath);
                 try {
                     File f = new File(sModulePath);
-                    exist = f.exists();
-                    isDir = f.isDirectory();
-                    length = f.length();
-                    read = f.canRead();
-                } catch (Throwable e2) {
-                    logError(String.valueOf(e2));
+                    logError("module path: exists=" + f.exists() + ", dir=" + f.isDirectory()
+                            + ", readable=" + f.canRead() + ", size=" + f.length());
+                } catch (Throwable ignored) {
                 }
-                logError("sModulePath: exists = " + exist + ", isDirectory = " + isDir + ", canRead = " + read + ", fileLength = " + length);
             }
-        } catch (Exception e) {
-            logError(String.valueOf(e));
+        } catch (Throwable e) {
+            logThrowable("injectModuleResources: ", e);
         }
     }
 
     @Override
-    public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
+    public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) {
         logDetail("handleLoadPackage", lpparam.packageName);
         if ("com.google.android.packageinstaller".equals(lpparam.packageName)
-            || "com.android.packageinstaller".equals(lpparam.packageName)) {
+                || "com.android.packageinstaller".equals(lpparam.packageName)
+                || "com.android.permissioncontroller".equals(lpparam.packageName)) {
             if (!sInitialized) {
                 sInitialized = true;
                 initializeHookInternal(lpparam);
@@ -132,8 +123,9 @@ public class HookEntry implements IXposedHookLoadPackage, IXposedHookZygoteInit 
 
     @Override
     public void initZygote(StartupParam startupParam) {
-        String modulePath = startupParam.modulePath;
-        assert modulePath != null;
-        sModulePath = modulePath;
+        if (startupParam == null || startupParam.modulePath == null) {
+            throw new IllegalStateException("InstallerPlus modulePath is null");
+        }
+        sModulePath = startupParam.modulePath;
     }
 }
