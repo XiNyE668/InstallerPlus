@@ -79,7 +79,7 @@ object InstallerHookBaklava {
         fragment.callNoArg("getCurrentUninstallStage")?.let { return it }
         val viewModel = activity.get("uninstallViewModel") ?: return null
         viewModel.callNoArg("getCurrentUninstallStage")?.let { return unwrapLiveData(it) }
-        return unwrapLiveData(viewModel.getFirst("_currentUninstallStage", "currentUninstallStallStage"))
+        return unwrapLiveData(viewModel.getFirst("_currentUninstallStage", "currentUninstallStage"))
     }
 
     private fun appSnippet(fragment: Any, dialog: Dialog): View? =
@@ -200,7 +200,7 @@ object InstallerHookBaklava {
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
             )
 
-        upsertDetails( parent, snippet, TAG_UNINSTALL_DETAILS, activity, sb)
+        upsertDetails(parent, snippet, TAG_UNINSTALL_DETAILS, activity, sb)
     }
 
     private fun removeUninstallDetails(fragment: Any, dialog: Dialog) {
@@ -240,7 +240,7 @@ object InstallerHookBaklava {
 
 @Suppress("DEPRECATION")
 private fun PackageInfo.compatLongVersionCode(): Long =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODED.P) longVersionCode else versionCode.toLong()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) longVersionCode else versionCode.toLong()
 
 private fun PackageInfo.versionLabel(): String =
     "${versionName ?: "N/A"}(${compatLongVersionCode()})"
