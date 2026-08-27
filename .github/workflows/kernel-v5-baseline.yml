@@ -1,0 +1,100 @@
+name: kernel-v5-baseline
+
+on:
+  push:
+    branches: [ kernel-v5-build ]
+    paths:
+      - '.github/workflows/kernel-v5-baseline.yml'
+      - 'kernel-v5/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex build-essential git curl xz-utils libssl-dev libelf-dev \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
+
+      - name: Fetch exact Lineage V4 base
+        run: |
+          git clone --filter=blob:none https://github.com/LineageOS/android_kernel_xiaomi_sm8250.git kernel
+          cd kernel
+          git checkout 71b13e62f057a649b77fe4062feb73ee72ad609c
+          git rev-parse HEAD
+
+      - name: Reconstruct V4 source state
+        run: |
+          cd kernel
+          git apply ../kernel-v5/camera-v4.patch
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('drivers/block/zram/zram_drv.c')
+          s=p.read_text()
+          old='static const char *default_compressor = "lzo";'
+          new='static const char *default_compressor = "zstd";'
+          assert old in s, 'V4 zram baseline string not found'
+          p.write_text(s.replace(old,new,1))
+          PY
+          grep -n 'default_compressor' drivers/block/zram/zram_drv.c | head
+          grep -R -n 'CAM_OIS_PACKET_OPCODE_TELEOIS_GETDATA' techpack/camera-xiaomi/drivers/cam_sensor_module | head
+
+      - name: Fetch official AOSP clang r563880c
+        run: |
+          mkdir -p toolchain
+          curl -fL --retry 3 \
+            'https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-16.0.0_r4/clang-r563880c.tar.gz' \
+            -o clang-r563880c.tar.gz
+          tar -xzf clang-r563880c.tar.gz -C toolchain
+          toolchain/bin/clang --version | tee clang-version.txt
+
+      - name: Generate lmi config
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd kernel
+          mkdir -p out
+          scripts/kconfig/merge_config.sh -m -O out \
+            arch/arm64/configs/vendor/kona-perf_defconfig \
+            arch/arm64/configs/vendor/debugfs.config \
+            arch/arm64/configs/vendor/xiaomi/sm8250-common.config \
+            arch/arm64/configs/vendor/xiaomi/lmi.config
+          export PATH="$GITHUB_WORKSPACE/toolchain/bin:$PATH"
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 \
+            CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- olddefconfig
+          grep -E 'CONFIG_(KALLSYMS|KALLSYMS_ALL|KPROBES|ZRAM|CRYPTO_ZSTD|ZSTD_COMPRESS|LTO|MODVERSIONS)' out/.config || true
+
+      - name: Build V4 baseline Image
+        shell: bash
+        run: |
+          set -o pipefail
+          cd kernel
+          export PATH="$GITHUB_WORKSPACE/toolchain/bin:$PATH"
+          make -j"$(nproc)" O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 \
+            CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- Image 2>&1 | tee "$GITHUB_WORKSPACE/build-v4-baseline.log"
+          test -s out/arch/arm64/boot/Image
+          cp out/arch/arm64/boot/Image "$GITHUB_WORKSPACE/V4-baseline-Image"
+          cp out/.config "$GITHUB_WORKSPACE/V4-baseline.config"
+          sha256sum "$GITHUB_WORKSPACE/V4-baseline-Image" | tee "$GITHUB_WORKSPACE/V4-baseline.sha256"
+
+      - name: Upload baseline artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: V4-baseline-control
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            V4-baseline-Image
+            V4-baseline.config
+            V4-baseline.sha256
+            clang-version.txt
+            build-v4-baseline.log
