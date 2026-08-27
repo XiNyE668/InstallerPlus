@@ -22,7 +22,7 @@ jobs:
       - name: Install host dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex build-essential git curl xz-utils libssl-dev libelf-dev \
+          sudo apt-get install -y bc bison flex build-essential git git-lfs curl xz-utils libssl-dev libelf-dev \
             gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
       - name: Fetch exact Lineage V4 base
@@ -53,14 +53,17 @@ jobs:
           grep -n 'default_compressor' drivers/block/zram/zram_drv.c | head
           grep -R -n 'CAM_OIS_PACKET_OPCODE_TELEOIS_GETDATA' techpack/camera-xiaomi/drivers/cam_sensor_module | head
 
-      - name: Fetch official AOSP clang r563880c
+      - name: Fetch pinned clang r563880c mirror
+        shell: bash
         run: |
-          mkdir -p toolchain
-          curl -fL --retry 3 \
-            'https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-16.0.0_r4/clang-r563880c.tar.gz' \
-            -o clang-r563880c.tar.gz
-          tar -xzf clang-r563880c.tar.gz -C toolchain
-          toolchain/bin/clang --version | tee clang-version.txt
+          set -euxo pipefail
+          git lfs install
+          git clone --depth=1 https://github.com/nduykha/Clang_r563880c_13989888.git toolchain
+          cd toolchain
+          test "$(git rev-parse HEAD)" = "1163207ab5aa3669d9912e9e0898c4c60d16f6e3"
+          ./bin/clang --version | tee "$GITHUB_WORKSPACE/clang-version.txt"
+          grep -q '^21.0.0' AndroidVersion.txt
+          grep -q 'r563880c' AndroidVersion.txt
 
       - name: Generate lmi config
         shell: bash
