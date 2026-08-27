@@ -26,11 +26,16 @@ jobs:
             gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
       - name: Fetch exact Lineage V4 base
+        shell: bash
         run: |
-          git clone --filter=blob:none https://github.com/LineageOS/android_kernel_xiaomi_sm8250.git kernel
+          set -euxo pipefail
+          mkdir kernel
           cd kernel
-          git checkout 71b13e62f057a649b77fe4062feb73ee72ad609c
-          git rev-parse HEAD
+          git init
+          git remote add origin https://github.com/LineageOS/android_kernel_xiaomi_sm8250.git
+          git fetch --depth=1 origin 71b13e62f057a649b77fe4062feb73ee72ad609c
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "71b13e62f057a649b77fe4062feb73ee72ad609c"
 
       - name: Reconstruct V4 source state
         run: |
