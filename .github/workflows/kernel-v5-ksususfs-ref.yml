@@ -1,0 +1,37 @@
+name: kernel-v5-ksususfs-ref
+
+on:
+  push:
+    branches: [ kernel-v5-build ]
+    paths:
+      - '.github/workflows/kernel-v5-ksususfs-ref.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fetch non-GKI KernelSU Next plus SUSFS reference
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/FlopKernel-Series/flop_trinket-mi_kernel.git refrepo
+          git -C refrepo sparse-checkout init --cone
+          git -C refrepo sparse-checkout set drivers/kernelsu/kernel
+          git -C refrepo checkout a75322caab64d29556add7a5ad9633e75432d216
+          cp -a refrepo/drivers/kernelsu/kernel ./ksu-next-susfs-nongki-ref
+          rm -rf ksu-next-susfs-nongki-ref/.git
+          tar -czf ksu-next-susfs-nongki-ref.tar.gz ksu-next-susfs-nongki-ref
+          sha256sum ksu-next-susfs-nongki-ref.tar.gz > ksu-next-susfs-nongki-ref.tar.gz.sha256
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-v5-ksususfs-nongki-ref
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            ksu-next-susfs-nongki-ref.tar.gz
+            ksu-next-susfs-nongki-ref.tar.gz.sha256
