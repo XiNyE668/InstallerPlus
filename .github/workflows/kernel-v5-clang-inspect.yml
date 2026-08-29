@@ -1,0 +1,30 @@
+name: kernel-v5-clang-inspect
+on:
+  push:
+    branches: [ kernel-v5-build ]
+    paths: ['.github/workflows/kernel-v5-clang-inspect.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Inspect
+        run: |
+          set -euxo pipefail
+          git lfs install
+          git clone --depth=1 https://github.com/nduykha/Clang_r563880c_13989888.git tc
+          cd tc
+          test "$(git rev-parse HEAD)" = "1163207ab5aa3669d9912e9e0898c4c60d16f6e3"
+          echo '=== top sizes ==='
+          du -sh bin lib lib64 2>/dev/null || true
+          du -sh lib/clang/* 2>/dev/null || true
+          echo '=== selected bins ==='
+          for x in clang ld.lld llvm-ar llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip llvm-size; do p="bin/$x"; if [ -e "$p" ]; then ls -lh "$p"; readlink -f "$p"; fi; done
+          echo '=== ldd ==='
+          ldd bin/clang || true
+          ldd bin/ld.lld || true
+          echo '=== clang resource dir ==='
+          bin/clang -print-resource-dir
+          find "$(bin/clang -print-resource-dir)" -maxdepth 2 -type f -printf '%p %s\n' | head -30
