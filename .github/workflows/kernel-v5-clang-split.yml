@@ -1,0 +1,60 @@
+name: kernel-v5-clang-split
+on:
+  push:
+    branches: [ kernel-v5-build ]
+    paths: ['.github/workflows/kernel-v5-clang-split.yml']
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Fetch pinned Android clang
+        run: |
+          set -euxo pipefail
+          git lfs install
+          git clone --depth=1 https://github.com/nduykha/Clang_r563880c_13989888.git toolchain
+          cd toolchain
+          test "$(git rev-parse HEAD)" = "1163207ab5aa3669d9912e9e0898c4c60d16f6e3"
+          ./bin/clang --version | tee ../clang-version.txt
+          cd ..
+          rm -rf toolchain/.git
+      - name: Archive and split
+        run: |
+          set -euxo pipefail
+          tar --zstd -cf clang-r563880c.tar.zst toolchain clang-version.txt
+          sha256sum clang-r563880c.tar.zst > clang-r563880c.tar.zst.sha256
+          split -b 300M -d -a 2 clang-r563880c.tar.zst clang-r563880c.part-
+          ls -lh clang-r563880c.part-* clang-r563880c.tar.zst.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clang-r563880c-part-00
+          compression-level: 0
+          retention-days: 7
+          path: clang-r563880c.part-00
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clang-r563880c-part-01
+          compression-level: 0
+          retention-days: 7
+          path: clang-r563880c.part-01
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clang-r563880c-part-02
+          compression-level: 0
+          retention-days: 7
+          path: clang-r563880c.part-02
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clang-r563880c-part-03
+          compression-level: 0
+          retention-days: 7
+          path: clang-r563880c.part-03
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clang-r563880c-checksum
+          retention-days: 7
+          path: |
+            clang-r563880c.tar.zst.sha256
+            clang-version.txt
