@@ -1,0 +1,33 @@
+name: kernel-v5-susfs419-ref
+
+on:
+  push:
+    branches: [ kernel-v5-build ]
+    paths:
+      - '.github/workflows/kernel-v5-susfs419-ref.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fetch modern SUSFS 4.19 backport reference
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/JackA1ltman/NonGKI_Kernel_Build_2nd.git refrepo
+          git -C refrepo checkout 459189e06a610d7256ac7b78a37b438239b041ad -- Patches/Patch/susfs_patch_to_4.19.patch
+          cp refrepo/Patches/Patch/susfs_patch_to_4.19.patch ./susfs_patch_to_4.19-modern-ref.patch
+          sha256sum susfs_patch_to_4.19-modern-ref.patch > susfs_patch_to_4.19-modern-ref.patch.sha256
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-v5-susfs419-modern-ref
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            susfs_patch_to_4.19-modern-ref.patch
+            susfs_patch_to_4.19-modern-ref.patch.sha256
