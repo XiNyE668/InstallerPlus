@@ -1,0 +1,67 @@
+name: kernel-v5-source-bundle
+
+on:
+  push:
+    branches: [ kernel-v5-build ]
+    paths:
+      - '.github/workflows/kernel-v5-source-bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fetch KernelSU Next frozen sources
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p bundle
+          git init bundle/KernelSU-Next-legacy
+          git -C bundle/KernelSU-Next-legacy remote add origin https://github.com/KernelSU-Next/KernelSU-Next.git
+          git -C bundle/KernelSU-Next-legacy fetch --depth=1 origin a54e4fa46c6cc25bcaa055cf14d790194beffed8
+          git -C bundle/KernelSU-Next-legacy checkout --detach FETCH_HEAD
+          test "$(git -C bundle/KernelSU-Next-legacy rev-parse HEAD)" = "a54e4fa46c6cc25bcaa055cf14d790194beffed8"
+
+          git init bundle/KernelSU-Next-stable
+          git -C bundle/KernelSU-Next-stable remote add origin https://github.com/KernelSU-Next/KernelSU-Next.git
+          git -C bundle/KernelSU-Next-stable fetch --depth=1 origin 3b18216f71df189ab3d1b1ce0bdb21be1268e771
+          git -C bundle/KernelSU-Next-stable checkout --detach FETCH_HEAD
+          test "$(git -C bundle/KernelSU-Next-stable rev-parse HEAD)" = "3b18216f71df189ab3d1b1ce0bdb21be1268e771"
+      - name: Fetch SUSFS frozen current and 4.19 reference
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git init bundle/susfs4ksu-current
+          git -C bundle/susfs4ksu-current remote add origin https://gitlab.com/simonpunk/susfs4ksu.git
+          git -C bundle/susfs4ksu-current fetch --depth=200 origin gki-android14-6.1
+          git -C bundle/susfs4ksu-current checkout --detach 0ff93279
+          git -C bundle/susfs4ksu-current rev-parse HEAD | tee bundle/SUSFS_CURRENT_COMMIT.txt
+
+          git init bundle/susfs4ksu-kernel-4.19-ref
+          git -C bundle/susfs4ksu-kernel-4.19-ref remote add origin https://gitlab.com/simonpunk/susfs4ksu.git
+          git -C bundle/susfs4ksu-kernel-4.19-ref fetch --depth=1 origin 001e69919c6271f690fd00b17e4c721c9e599152
+          git -C bundle/susfs4ksu-kernel-4.19-ref checkout --detach FETCH_HEAD
+          test "$(git -C bundle/susfs4ksu-kernel-4.19-ref rev-parse HEAD)" = "001e69919c6271f690fd00b17e4c721c9e599152"
+      - name: Freeze metadata and package
+        shell: bash
+        run: |
+          set -euxo pipefail
+          printf '%s\n' 'v3.3.0' > bundle/KSU_STABLE_TAG.txt
+          git -C bundle/KernelSU-Next-stable rev-parse HEAD > bundle/KSU_STABLE_COMMIT.txt
+          git -C bundle/KernelSU-Next-legacy rev-parse HEAD > bundle/KSU_LEGACY_COMMIT.txt
+          git -C bundle/susfs4ksu-current describe --tags --always --dirty > bundle/SUSFS_CURRENT_DESCRIBE.txt || true
+          find bundle -name .git -type d -prune -exec rm -rf {} +
+          tar -czf kernel-v5-upstream-source-bundle.tar.gz bundle
+          sha256sum kernel-v5-upstream-source-bundle.tar.gz > kernel-v5-upstream-source-bundle.tar.gz.sha256
+      - name: Upload source bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-v5-upstream-source-bundle
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            kernel-v5-upstream-source-bundle.tar.gz
+            kernel-v5-upstream-source-bundle.tar.gz.sha256
