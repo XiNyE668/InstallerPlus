@@ -1,0 +1,33 @@
+name: kernel-v5-host-bc
+
+on:
+  push:
+    branches: [ kernel-v5-build ]
+    paths:
+      - '.github/workflows/kernel-v5-host-bc.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install bc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc
+      - name: Bundle bc
+        run: |
+          set -eux
+          mkdir -p host-bc/bin
+          cp -L "$(command -v bc)" host-bc/bin/bc
+          chmod +x host-bc/bin/bc
+          bc --version | head -1 | tee host-bc/bc.version.txt
+          ldd host-bc/bin/bc | tee host-bc/bc.ldd.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-v5-host-bc-linux-x86_64
+          retention-days: 7
+          path: host-bc
