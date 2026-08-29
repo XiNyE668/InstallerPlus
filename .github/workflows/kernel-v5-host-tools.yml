@@ -1,0 +1,49 @@
+name: kernel-v5-host-tools
+
+on:
+  push:
+    branches: [ kernel-v5-build ]
+    paths:
+      - '.github/workflows/kernel-v5-host-tools.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-host-tools:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install bison flex
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y bison flex
+          bison --version | head -1
+          flex --version
+          m4 --version | head -1
+      - name: Package standalone host tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p host-tools/bin host-tools/share
+          cp -a /usr/bin/bison host-tools/bin/
+          cp -a /usr/bin/flex host-tools/bin/
+          cp -a /usr/bin/m4 host-tools/bin/
+          cp -a /usr/share/bison host-tools/share/
+          ldd /usr/bin/bison | tee host-tools/bison.ldd.txt
+          ldd /usr/bin/flex | tee host-tools/flex.ldd.txt
+          /usr/bin/bison --version > host-tools/bison.version.txt
+          /usr/bin/flex --version > host-tools/flex.version.txt
+          tar -C host-tools -czf kernel-v5-host-tools-linux-x86_64.tar.gz .
+          sha256sum kernel-v5-host-tools-linux-x86_64.tar.gz > kernel-v5-host-tools-linux-x86_64.tar.gz.sha256
+      - name: Upload host tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-v5-host-tools-linux-x86_64
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            kernel-v5-host-tools-linux-x86_64.tar.gz
+            kernel-v5-host-tools-linux-x86_64.tar.gz.sha256
