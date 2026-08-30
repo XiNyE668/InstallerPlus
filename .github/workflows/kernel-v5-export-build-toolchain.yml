@@ -15,14 +15,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Install host packaging and cross binutils
         run: |
           sudo apt-get update
           sudo apt-get install -y git git-lfs zstd binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
-
       - name: Fetch frozen Android clang
         shell: bash
         run: |
@@ -36,8 +33,7 @@ jobs:
           grep -q 'r563880c' AndroidVersion.txt
           cd ..
           du -sh clang clang/bin clang/lib* || true
-
-      - name: Package minimal frozen clang
+      - name: Package and chunk minimal frozen clang
         shell: bash
         run: |
           set -euxo pipefail
@@ -46,10 +42,9 @@ jobs:
           test -d clang/lib && items+=(clang/lib)
           test -d clang/lib64 && items+=(clang/lib64)
           test -d clang/include && items+=(clang/include)
-          tar -cf - "${items[@]}" | zstd -19 -T0 -o kernel-v5-clang21.tar.zst
-          sha256sum kernel-v5-clang21.tar.zst > kernel-v5-clang21.sha256
-          ls -lh kernel-v5-clang21.tar.zst
-
+          tar -cf - "${items[@]}" | zstd -6 -T0 | split -b 400M -d -a 2 - kernel-v5-clang21.tar.zst.part-
+          cat kernel-v5-clang21.tar.zst.part-* | sha256sum > kernel-v5-clang21.sha256
+          ls -lh kernel-v5-clang21.tar.zst.part-* kernel-v5-clang21.sha256
       - name: Package GNU cross binutils
         shell: bash
         run: |
@@ -57,29 +52,43 @@ jobs:
           mkdir -p cross-bin
           cp -a /usr/bin/aarch64-linux-gnu-{ar,as,ld,ld.bfd,nm,objcopy,objdump,ranlib,readelf,size,strings,strip} cross-bin/ || true
           cp -a /usr/bin/arm-linux-gnueabi-{ar,as,ld,ld.bfd,nm,objcopy,objdump,ranlib,readelf,size,strings,strip} cross-bin/ || true
-          tar -cf - cross-bin | zstd -19 -T0 -o kernel-v5-cross-binutils.tar.zst
+          tar -cf - cross-bin | zstd -6 -T0 -o kernel-v5-cross-binutils.tar.zst
           sha256sum kernel-v5-cross-binutils.tar.zst > kernel-v5-cross-binutils.sha256
-          ls -lh kernel-v5-cross-binutils.tar.zst
-
-      - name: Upload frozen clang
+      - name: Upload clang part 00
+        uses: actions/upload-artifact@v4
+        with: {name: kernel-v5-clang21-part-00, path: kernel-v5-clang21.tar.zst.part-00, retention-days: 7, compression-level: 0, if-no-files-found: error}
+      - name: Upload clang part 01
+        uses: actions/upload-artifact@v4
+        with: {name: kernel-v5-clang21-part-01, path: kernel-v5-clang21.tar.zst.part-01, retention-days: 7, compression-level: 0, if-no-files-found: ignore}
+      - name: Upload clang part 02
+        uses: actions/upload-artifact@v4
+        with: {name: kernel-v5-clang21-part-02, path: kernel-v5-clang21.tar.zst.part-02, retention-days: 7, compression-level: 0, if-no-files-found: ignore}
+      - name: Upload clang part 03
+        uses: actions/upload-artifact@v4
+        with: {name: kernel-v5-clang21-part-03, path: kernel-v5-clang21.tar.zst.part-03, retention-days: 7, compression-level: 0, if-no-files-found: ignore}
+      - name: Upload clang part 04
+        uses: actions/upload-artifact@v4
+        with: {name: kernel-v5-clang21-part-04, path: kernel-v5-clang21.tar.zst.part-04, retention-days: 7, compression-level: 0, if-no-files-found: ignore}
+      - name: Upload clang part 05
+        uses: actions/upload-artifact@v4
+        with: {name: kernel-v5-clang21-part-05, path: kernel-v5-clang21.tar.zst.part-05, retention-days: 7, compression-level: 0, if-no-files-found: ignore}
+      - name: Upload clang metadata
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-v5-clang21
-          retention-days: 7
-          if-no-files-found: error
-          compression-level: 0
+          name: kernel-v5-clang21-meta
           path: |
-            kernel-v5-clang21.tar.zst
             kernel-v5-clang21.sha256
             clang-version.txt
-
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
       - name: Upload cross binutils
         uses: actions/upload-artifact@v4
         with:
           name: kernel-v5-cross-binutils
-          retention-days: 7
-          if-no-files-found: error
-          compression-level: 0
           path: |
             kernel-v5-cross-binutils.tar.zst
             kernel-v5-cross-binutils.sha256
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
