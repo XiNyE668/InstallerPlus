@@ -17,20 +17,18 @@ jobs:
             chmod +x /tmp/llvm.sh
             sudo /tmp/llvm.sh 17
           fi
-          NM="$(command -v llvm-nm-17 || true)"
-          [ -n "$NM" ] || NM="/usr/lib/llvm-17/bin/llvm-nm"
-          test -x "$NM"
+          LLVM_DIR=/usr/lib/llvm-17/bin
+          test -x "$LLVM_DIR/llvm-nm"
           mkdir -p bundle/bin bundle/lib
-          LLVM_DIR="$(dirname "$NM")"
           for t in llvm-nm llvm-readelf llvm-size llvm-strip; do
-            CAND="$LLVM_DIR/$t"
-            test -x "$CAND" && cp -L "$CAND" "bundle/bin/$t"
+            test -x "$LLVM_DIR/$t"
+            cp -L "$LLVM_DIR/$t" "bundle/bin/$t"
           done
           for exe in bundle/bin/*; do
             ldd "$exe" | awk '/=> \/|^\// {for(i=1;i<=NF;i++) if ($i ~ /^\//) print $i}'
           done | sort -u > /tmp/libs.txt
           while read -r lib; do cp -L "$lib" bundle/lib/; done < /tmp/libs.txt
-          "$NM" --version | head -2 | tee bundle/VERSION.txt
+          "$LLVM_DIR/llvm-nm" --version | head -2 | tee bundle/VERSION.txt
           sha256sum bundle/bin/* bundle/lib/* > bundle/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
