@@ -18,10 +18,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install cross toolchains
+      - name: Install host packaging and cross binutils
         run: |
           sudo apt-get update
-          sudo apt-get install -y git git-lfs zstd gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
+          sudo apt-get install -y git git-lfs zstd binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
 
       - name: Fetch frozen Android clang
         shell: bash
@@ -34,29 +34,52 @@ jobs:
           ./bin/clang --version | tee ../clang-version.txt
           grep -q '^21.0.0' AndroidVersion.txt
           grep -q 'r563880c' AndroidVersion.txt
+          cd ..
+          du -sh clang clang/bin clang/lib* || true
 
-      - name: Package build toolchain
+      - name: Package minimal frozen clang
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p bundle/usr/bin bundle/usr/lib bundle/usr/aarch64-linux-gnu bundle/usr/arm-linux-gnueabi
-          cp -a clang bundle/clang
-          cp -a /usr/bin/aarch64-linux-gnu-* bundle/usr/bin/ || true
-          cp -a /usr/bin/arm-linux-gnueabi-* bundle/usr/bin/ || true
-          cp -a /usr/lib/gcc-cross bundle/usr/lib/ || true
-          cp -a /usr/aarch64-linux-gnu/. bundle/usr/aarch64-linux-gnu/ || true
-          cp -a /usr/arm-linux-gnueabi/. bundle/usr/arm-linux-gnueabi/ || true
-          cp clang-version.txt bundle/
-          tar --zstd -cf kernel-v5-build-toolchain.tar.zst bundle
-          sha256sum kernel-v5-build-toolchain.tar.zst > kernel-v5-build-toolchain.sha256
+          rm -rf clang/.git
+          items=(clang/bin clang/AndroidVersion.txt)
+          test -d clang/lib && items+=(clang/lib)
+          test -d clang/lib64 && items+=(clang/lib64)
+          test -d clang/include && items+=(clang/include)
+          tar -cf - "${items[@]}" | zstd -19 -T0 -o kernel-v5-clang21.tar.zst
+          sha256sum kernel-v5-clang21.tar.zst > kernel-v5-clang21.sha256
+          ls -lh kernel-v5-clang21.tar.zst
 
-      - name: Upload build toolchain
+      - name: Package GNU cross binutils
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p cross-bin
+          cp -a /usr/bin/aarch64-linux-gnu-{ar,as,ld,ld.bfd,nm,objcopy,objdump,ranlib,readelf,size,strings,strip} cross-bin/ || true
+          cp -a /usr/bin/arm-linux-gnueabi-{ar,as,ld,ld.bfd,nm,objcopy,objdump,ranlib,readelf,size,strings,strip} cross-bin/ || true
+          tar -cf - cross-bin | zstd -19 -T0 -o kernel-v5-cross-binutils.tar.zst
+          sha256sum kernel-v5-cross-binutils.tar.zst > kernel-v5-cross-binutils.sha256
+          ls -lh kernel-v5-cross-binutils.tar.zst
+
+      - name: Upload frozen clang
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-v5-build-toolchain
+          name: kernel-v5-clang21
           retention-days: 7
           if-no-files-found: error
+          compression-level: 0
           path: |
-            kernel-v5-build-toolchain.tar.zst
-            kernel-v5-build-toolchain.sha256
+            kernel-v5-clang21.tar.zst
+            kernel-v5-clang21.sha256
             clang-version.txt
+
+      - name: Upload cross binutils
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-v5-cross-binutils
+          retention-days: 7
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            kernel-v5-cross-binutils.tar.zst
+            kernel-v5-cross-binutils.sha256
