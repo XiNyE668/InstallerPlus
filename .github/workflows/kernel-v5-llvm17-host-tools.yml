@@ -7,31 +7,38 @@ jobs:
   export:
     runs-on: ubuntu-22.04
     steps:
-      - name: Install LLVM 17
+      - name: Install and export synchronized LLVM 17 toolchain
         shell: bash
         run: |
           set -euxo pipefail
           sudo apt-get update
-          if ! sudo apt-get install -y llvm-17; then
+          if ! sudo apt-get install -y llvm-17 clang-17 lld-17; then
             wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
             chmod +x /tmp/llvm.sh
             sudo /tmp/llvm.sh 17
           fi
           LLVM_DIR=/usr/lib/llvm-17/bin
+          test -x "$LLVM_DIR/clang"
           test -x "$LLVM_DIR/llvm-nm"
           mkdir -p bundle/bin bundle/lib
-          for t in llvm-nm llvm-readelf llvm-size llvm-strip; do
+          for t in clang ld.lld llvm-ar llvm-ranlib llvm-nm llvm-readelf llvm-size llvm-strip llvm-objcopy llvm-objdump; do
             test -x "$LLVM_DIR/$t"
             cp -L "$LLVM_DIR/$t" "bundle/bin/$t"
           done
           for exe in bundle/bin/*; do
-            ldd "$exe" | awk '/=> \/|^\// {for(i=1;i<=NF;i++) if ($i ~ /^\//) print $i}'
+            ldd "$exe" 2>/dev/null | awk '/=> \/|^\// {for(i=1;i<=NF;i++) if ($i ~ /^\//) print $i}' || true
           done | sort -u > /tmp/libs.txt
-          while read -r lib; do cp -L "$lib" bundle/lib/; done < /tmp/libs.txt
-          "$LLVM_DIR/llvm-nm" --version | head -2 | tee bundle/VERSION.txt
+          while read -r lib; do [ -n "$lib" ] && cp -L "$lib" bundle/lib/; done < /tmp/libs.txt
+          "$LLVM_DIR/clang" --version | head -3 | tee bundle/CLANG-VERSION.txt
+          "$LLVM_DIR/llvm-nm" --version | head -2 | tee bundle/NM-VERSION.txt
+          cat > /tmp/t.c <<'EOF'
+          int exported_symbol(void) { return 17; }
+          EOF
+          "$LLVM_DIR/clang" -flto=thin -c /tmp/t.c -o bundle/thinlto-smoke.o
+          "$LLVM_DIR/llvm-nm" bundle/thinlto-smoke.o | tee bundle/thinlto-smoke.nm.txt
           sha256sum bundle/bin/* bundle/lib/* > bundle/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: kernel-v5-llvm17-host-tools-linux-x86_64
+          name: kernel-v5-llvm17-sync-toolchain-linux-x86_64
           path: bundle
           retention-days: 7
