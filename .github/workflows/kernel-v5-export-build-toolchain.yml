@@ -1,0 +1,62 @@
+name: kernel-v5-export-build-toolchain
+
+on:
+  push:
+    branches: [ kernel-v5-build ]
+    paths:
+      - '.github/workflows/kernel-v5-export-build-toolchain.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install cross toolchains
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git git-lfs zstd gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
+
+      - name: Fetch frozen Android clang
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git lfs install
+          git clone --depth=1 https://github.com/nduykha/Clang_r563880c_13989888.git clang
+          cd clang
+          test "$(git rev-parse HEAD)" = "1163207ab5aa3669d9912e9e0898c4c60d16f6e3"
+          ./bin/clang --version | tee ../clang-version.txt
+          grep -q '^21.0.0' AndroidVersion.txt
+          grep -q 'r563880c' AndroidVersion.txt
+
+      - name: Package build toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p bundle/usr/bin bundle/usr/lib bundle/usr/aarch64-linux-gnu bundle/usr/arm-linux-gnueabi
+          cp -a clang bundle/clang
+          cp -a /usr/bin/aarch64-linux-gnu-* bundle/usr/bin/ || true
+          cp -a /usr/bin/arm-linux-gnueabi-* bundle/usr/bin/ || true
+          cp -a /usr/lib/gcc-cross bundle/usr/lib/ || true
+          cp -a /usr/aarch64-linux-gnu/. bundle/usr/aarch64-linux-gnu/ || true
+          cp -a /usr/arm-linux-gnueabi/. bundle/usr/arm-linux-gnueabi/ || true
+          cp clang-version.txt bundle/
+          tar --zstd -cf kernel-v5-build-toolchain.tar.zst bundle
+          sha256sum kernel-v5-build-toolchain.tar.zst > kernel-v5-build-toolchain.sha256
+
+      - name: Upload build toolchain
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-v5-build-toolchain
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            kernel-v5-build-toolchain.tar.zst
+            kernel-v5-build-toolchain.sha256
+            clang-version.txt
