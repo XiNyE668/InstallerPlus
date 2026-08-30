@@ -1,0 +1,45 @@
+name: kernel-v5-llvm-host-tools
+on:
+  push:
+    branches: [kernel-v5-build]
+    paths: ['.github/workflows/kernel-v5-llvm-host-tools.yml']
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Locate LLVM nm and companion tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p bundle/bin bundle/lib
+          NM="$(command -v llvm-nm || true)"
+          if [ -z "$NM" ]; then
+            for v in 19 18 17 16 15 14; do
+              if command -v llvm-nm-$v >/dev/null 2>&1; then NM="$(command -v llvm-nm-$v)"; break; fi
+            done
+          fi
+          if [ -z "$NM" ]; then
+            sudo apt-get update
+            sudo apt-get install -y llvm
+            NM="$(command -v llvm-nm)"
+          fi
+          LLVM_DIR="$(dirname "$NM")"
+          for t in llvm-nm llvm-readelf llvm-size llvm-strip; do
+            CAND="$LLVM_DIR/$t"
+            if [ ! -x "$CAND" ]; then
+              base="$(basename "$NM" | sed 's/^llvm-nm//')"
+              CAND="$LLVM_DIR/$t$base"
+            fi
+            if [ -x "$CAND" ]; then cp -L "$CAND" "bundle/bin/$t"; fi
+          done
+          for exe in bundle/bin/*; do
+            ldd "$exe" | awk '/=> \/|^\// {for(i=1;i<=NF;i++) if ($i ~ /^\//) print $i}'
+          done | sort -u > /tmp/libs.txt
+          while read -r lib; do cp -L "$lib" bundle/lib/; done < /tmp/libs.txt
+          "$NM" --version | head -2 | tee bundle/VERSION.txt
+          sha256sum bundle/bin/* bundle/lib/* > bundle/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-v5-llvm-host-tools-linux-x86_64
+          path: bundle
+          retention-days: 7
