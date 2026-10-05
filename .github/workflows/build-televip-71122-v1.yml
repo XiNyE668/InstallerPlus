@@ -19,19 +19,21 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install Android SDK 36
+        shell: bash
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$GITHUB_WORKSPACE/local.properties"
 
       - name: Fetch verified TeleVip checkpoint
         run: |
           git clone https://github.com/2B-4G10/TeleVIP.git TeleVip
           cd TeleVip
           git checkout be9a5824584ef6907eecfe739d7e9b7d07dad8f0
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
       - name: Mark Telegram 12.10.6 / 71122 and V1
         run: |
